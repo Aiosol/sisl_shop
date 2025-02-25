@@ -51,41 +51,20 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'eshop_project.wsgi.application'
 
+# Keep using SQLite but set the proper production settings
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'mitsubishifabd_mitsubishi_db',
-        'USER': 'mitsubishifabd_mitsubishi_user',
-        'PASSWORD': 'Sisl123123',  # Replace with the actual password you set
-        'HOST': 'mysql-db.server',
-        'PORT': '3306',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-]
+DEBUG = False
+ALLOWED_HOSTS = ['mitsubishifabd.com', 'www.mitsubishifabd.com']
 
-LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
-USE_I18N = True
-USE_TZ = True
-
-STATIC_URL = 'static/'
-STATICFILES_DIRS = [BASE_DIR / 'eshop' / 'static']
+# Make sure static files are properly configured
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'static_root'
-
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 

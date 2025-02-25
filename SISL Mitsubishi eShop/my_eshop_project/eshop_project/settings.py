@@ -54,10 +54,10 @@ WSGI_APPLICATION = 'eshop_project.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'your_cpanel_db_name',
-        'USER': 'your_cpanel_db_user',
-        'PASSWORD': 'your_cpanel_db_password',
-        'HOST': 'localhost',
+        'NAME': 'mitsubishifabd_mitsubishi_db',
+        'USER': 'mitsubishifabd_mitsubishi_user',
+        'PASSWORD': 'Sisl123123',  # Replace with the actual password you set
+        'HOST': 'mysql-db.server',
         'PORT': '3306',
     }
 }

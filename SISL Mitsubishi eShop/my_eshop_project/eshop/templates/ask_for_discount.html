@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% load static form_tags %}
+
+{% block content %}
+<div class="container my-4">
+  <h2 class="text-center mb-4">Ask for Discount Request</h2>
+
+  <form method="POST" class="card shadow p-4" style="max-width: 900px; margin: 0 auto;">
+    {% csrf_token %}
+
+    <!-- Quotation Header (two columns + notes) -->
+    <div class="mb-4">
+      <h4>Quotation Header</h4>
+
+      <div class="row">
+        <!-- LEFT COLUMN: Customer details -->
+        <div class="col-md-6">
+          <h5>Customer Details</h5>
+          <div class="mb-3">
+            <label class="form-label">Customer Name</label>
+            <input type="text" class="form-control"
+                   value="{{ request.user.first_name }} {{ request.user.last_name }}"
+                   readonly>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control"
+                   value="{{ request.user.email }}"
+                   readonly>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Date/Time, Order Number, Subject -->
+        <div class="col-md-6">
+          <h5>Quotation Info</h5>
+          <div class="mb-3">
+            <label class="form-label">Date/Time</label>
+            <input type="text" class="form-control"
+                   value="{% now 'Y-m-d H:i' %}"
+                   readonly>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="id_order_number">Order Number</label>
+            <input type="text" name="order_number" class="form-control" id="id_order_number">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="id_subject">Subject</label>
+            <input type="text" name="subject" class="form-control" id="id_subject">
+          </div>
+        </div>
+      </div>
+
+      <!-- NOTES FIELD BELOW BOTH COLUMNS -->
+      <div class="mt-4">
+        <label class="form-label">{{ header_form.notes.label }}</label>
+        {{ header_form.notes|add_class:"form-control" }}
+      </div>
+    </div>
+
+    <!-- Management form for formset -->
+    {{ formset.management_form }}
+
+    <!-- Line Items Table -->
+    <div class="mb-4">
+      <h4 class="mb-3">Line Items</h4>
+      <table class="table table-bordered align-middle" id="line-items-table">
+        <thead class="table-light">
+          <tr>
+            <th style="width: 20%;">Product</th>
+            <th>Description</th>
+            <th style="width: 10%;">Quantity</th>
+            <th style="width: 15%;">Unit Price</th>
+            <th style="width: 12%;">Discount (%)</th>
+            {% if formset.can_delete %}
+              <th style="width: 5%;">Remove</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for line_form in formset %}
+            <tr>
+              <td>{{ line_form.product }}</td>
+              <td>{{ line_form.description }}</td>
+              <td>{{ line_form.quantity }}</td>
+              <td>{{ line_form.unit_price }}</td>
+              <td>{{ line_form.discount_percent }}</td>
+              {% if formset.can_delete %}
+                <td class="text-center">{{ line_form.DELETE }}</td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <!-- "Add Another Line" button -->
+      <button type="button" class="btn btn-secondary" id="add-line-btn">
+        Add Another Line
+      </button>
+    </div>
+
+    <!-- Real-time total display -->
+    <div class="text-end my-3">
+      <strong>Total: </strong><span id="grand-total">0.00</span>
+    </div>
+
+    <div class="text-center">
+      <button type="submit" class="btn btn-primary px-4">Submit</button>
+    </div>
+  </form>
+</div>
+
+<!-- Hidden "empty form" row for dynamic line addition -->
+<table style="display: none;">
+  <tbody>
+    <tr id="empty-form-row">
+      <td>{{ formset.empty_form.product }}</td>
+      <td>{{ formset.empty_form.description }}</td>
+      <td>{{ formset.empty_form.quantity }}</td>
+      <td>{{ formset.empty_form.unit_price }}</td>
+      <td>{{ formset.empty_form.discount_percent }}</td>
+      {% if formset.can_delete %}
+        <td class="text-center">{{ formset.empty_form.DELETE }}</td>
+      {% endif %}
+    </tr>
+  </tbody>
+</table>
+
+<script>
+(function() {
+  // --- DYNAMIC LINE ADDING ---
+  const addLineBtn = document.getElementById("add-line-btn");
+  const tableBody = document.querySelector("#line-items-table tbody");
+  const totalForms = document.getElementById("id_lines-TOTAL_FORMS");
+  const emptyFormRow = document.getElementById("empty-form-row");
+
+  if (addLineBtn) {
+    addLineBtn.addEventListener("click", function() {
+      let formIndex = parseInt(totalForms.value);
+      let newRow = emptyFormRow.cloneNode(true);
+      newRow.removeAttribute("id");
+      newRow.style.display = "";
+
+      let regex = new RegExp('__prefix__', 'g');
+      newRow.innerHTML = newRow.innerHTML.replace(regex, formIndex);
+
+      tableBody.appendChild(newRow);
+      totalForms.value = formIndex + 1;
+      recalcTotal();
+    });
+  }
+
+  // --- AUTO-POPULATE PRICE & CALCULATE TOTALS ---
+  document.addEventListener("change", function(e) {
+    if (e.target.classList.contains("product-select")) {
+      let selectedOption = e.target.options[e.target.selectedIndex];
+      let productPrice = selectedOption.getAttribute("data-price");
+      if (productPrice) {
+        let row = e.target.closest("tr");
+        let unitPriceInput = row.querySelector(".unit-price-input");
+        unitPriceInput.value = productPrice;
+      }
+    }
+    if (
+      e.target.classList.contains("product-select") ||
+      e.target.classList.contains("quantity-input") ||
+      e.target.classList.contains("unit-price-input") ||
+      e.target.classList.contains("discount-input")
+    ) {
+      recalcTotal();
+    }
+  });
+
+  function recalcTotal() {
+    let rows = document.querySelectorAll("#line-items-table tbody tr");
+    let grandTotal = 0;
+    rows.forEach(row => {
+      let qty = parseFloat(row.querySelector(".quantity-input")?.value || 0);
+      let price = parseFloat(row.querySelector(".unit-price-input")?.value || 0);
+      let disc = parseFloat(row.querySelector(".discount-input")?.value || 0);
+      let lineTotal = qty * price;
+      let discountAmount = lineTotal * (disc / 100);
+      let finalLine = lineTotal - discountAmount;
+      grandTotal += finalLine;
+    });
+    document.getElementById("grand-total").textContent = grandTotal.toFixed(2);
+  }
+  recalcTotal();
+})();
+</script>
+
+<!-- Share and Download Section (Rendered only when a quotation exists) -->
+{% if quotation %}
+<div class="container my-4">
+  <div class="mb-4">
+    <h4>Share Your Request</h4>
+    <p>You can share your discount request details with others via WhatsApp or Email.</p>
+    <a class="btn btn-success" target="_blank"
+       href="https://api.whatsapp.com/send?text={{ 'Discount Request Details for Order No: ' | add:quotation.order_number | urlencode }}">
+      Share on WhatsApp
+    </a>
+    <a class="btn btn-primary" target="_blank"
+       href="mailto:?subject=Discount Request Details for Order No: {{ quotation.order_number }}&body=Discount Request Details for Order No: {{ quotation.order_number }}">
+      Share via Email
+    </a>
+  </div>
+
+  <div class="mb-4">
+    <h4>Details File</h4>
+    <p>You can also download the details file:</p>
+    {% if shareable_file_url %}
+      <a href="{{ shareable_file_url }}" class="btn btn-info" download>Download Details File</a>
+    {% else %}
+      <button class="btn btn-info" disabled>No file available</button>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Return to Product Button -->
+<div class="text-center">
+  <a href="{% url 'product_detail' product.sku %}" class="btn btn-secondary">Return to Product</a>
+</div>
+{% endblock %}
